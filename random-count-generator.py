@@ -72,6 +72,7 @@ class GetterSetter(object):
 # abstract class from GetterSetter
 class Generator(GetterSetter):
     history = Queue.Queue(maxsize=100)
+    event_writer = Queue.Queue()
     def generator(self):
         rn = numpy.random.choice(numpy.arange(1, 6), p=[0.5, 0.25, 0.15, 0.05, 0.05])
 
@@ -98,9 +99,11 @@ class Generator(GetterSetter):
             print key, str(value/float(self.history.qsize())*100) + '%'
 
     # worker refactor for starting a new thread
-    def worker(self,cond, number, now):
+    def worker(self,cond):
+
         with open("allhistory.txt", "a") as file:
-            file.write("{}\t{}\n".format(number, now.strftime("%m/%d/%Y %H:%M:%S")))
+            obj = self.event_writer.get()
+            file.write("{}\t{}\n".format(obj[0], obj[1].strftime("%m/%d/%Y %H:%M:%S")))
 
             # print the threads spun up
             # for thread in threading.enumerate():
@@ -112,8 +115,9 @@ class Generator(GetterSetter):
     # write events to a file with time appeneded
     def write_event(self, number, now):
         # adding a new thread to call write_event
+        self.event_writer.put((number, now))
         cond = threading.Condition()
-        t = threading.Thread(target=self.worker, args=(cond, number, now))
+        t = threading.Thread(target=self.worker, args=(cond, ))
         t.daemon = True
         t.start()
 
