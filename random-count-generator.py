@@ -3,6 +3,9 @@ from collections import defaultdict
 import abc
 import Queue
 from datetime import datetime
+import threading
+
+
 """
 Create a function that prints a random number between 1 and 5 to stdout (or console). The probability distribution of the numbers should be as follows:
 
@@ -57,6 +60,14 @@ class GetterSetter(object):
         """calculates the frequency of generated numbers"""
 
         return
+
+    @abc.abstractmethod
+    def write_event(self):
+        """write the random number and timestamp to disk"""
+
+        return
+
+
 # class to generate and queue the history
 # abstract class from GetterSetter
 class Generator(GetterSetter):
@@ -65,8 +76,13 @@ class Generator(GetterSetter):
         rn = numpy.random.choice(numpy.arange(1, 6), p=[0.5, 0.25, 0.15, 0.05, 0.05])
 
         # after generating number calling write_Event method to time stamp and save to a file
-        self.write_event(rn, datetime.utcnow())
+        #self.write_event(rn, datetime.utcnow())
 
+        # adding a new thread to call write_event 
+        cond = threading.Condition()
+        t = threading.Thread(target=self.write_event, args=(cond, rn, datetime.utcnow()))
+        t.daemon = True
+        t.start()
         # after generating number calling append_history method
         self.append_history(rn)
         # print random number
@@ -84,11 +100,19 @@ class Generator(GetterSetter):
 
         for key,value in random_number.iteritems():
             print key, str(value/float(self.history.qsize())*100) + '%'
-            
+
     # write events to a file with time appeneded
-    def write_event(self,number, now):
+    def write_event(self, cond, number, now):
         with open("allhistory.txt", "a") as file:
             file.write("{}\t{}\n".format(number,now.strftime("%m/%d/%Y %H:%M:%S")))
+
+            # print the threads spun up
+            #for thread in threading.enumerate():
+            #    print(thread.name)
+            #print ("$################")
+            with cond:
+                cond.notify()
+
 
 
 
