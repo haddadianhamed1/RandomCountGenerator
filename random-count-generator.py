@@ -4,7 +4,7 @@ import abc
 import Queue
 from datetime import datetime
 import threading
-
+import argparse
 
 """
 Create a function that prints a random number between 1 and 5 to stdout (or console). The probability distribution of the numbers should be as follows:
@@ -73,23 +73,29 @@ class GetterSetter(object):
 class Generator(GetterSetter):
     history = Queue.Queue(maxsize=100)
     event_writer = Queue.Queue()
-    def generator(self):
+    def generator(self, cond):
+        with cond:
+            cond.notify()
+        #print("hi")
         rn = numpy.random.choice(numpy.arange(1, 6), p=[0.5, 0.25, 0.15, 0.05, 0.05])
-
+        #print rn
         # after generating number calling write_Event method to time stamp and save to a file
         self.write_event(rn, datetime.utcnow())
+        #print("hi")
 
 
         # after generating number calling append_history method
         self.append_history(rn)
         # print random number
         #print rn
+
     def get_history(self):
         return list(self.history.queue)
     def append_history(self,number):
         if self.history.qsize() >= 100:
             self.history.get()
         self.history.put(number)
+
     def cal_stat(self):
         random_number = defaultdict(int)
         for numbers in list(self.history.queue):
@@ -100,38 +106,57 @@ class Generator(GetterSetter):
 
     # worker refactor for starting a new thread
     def worker(self,cond):
-
         with open("allhistory.txt", "a") as file:
             obj = self.event_writer.get()
-            file.write("{}\t{}\n".format(obj[0], obj[1].strftime("%m/%d/%Y %H:%M:%S")))
-
+            #file.write("{}\t{}\n".format(obj[0], obj[1].strftime("%m/%d/%Y %H:%M:%S")))
+            file.write("{}\t{}\n".format(obj[0], obj[1]))
+            #print(obj[0], obj[1])
             # print the threads spun up
-            # for thread in threading.enumerate():
-            #    print(thread.name)
-            # print ("$################")
+            #for thread in threading.enumerate():
+            #   print(thread.name)
+            #print ("$################")
             with cond:
                 cond.notify()
 
     # write events to a file with time appeneded
     def write_event(self, number, now):
+        # print number
         # adding a new thread to call write_event
         self.event_writer.put((number, now))
         cond = threading.Condition()
         t = threading.Thread(target=self.worker, args=(cond, ))
         t.daemon = True
         t.start()
+        t.join()
+
+
+def run_threads():
+    cond = threading.Condition()
+    y = Generator()
+    t = threading.Thread(target=y.generator, args=(cond, ))
+    # t.daemon = True
+    t.start()
+    t.join()
+    # testing
+    """
+    x = Generator()
+    for y in range (500):
+        x.generator()
+
+    print x.get_history()
+    print len(x.get_history())
+
+    x.cal_stat()
+    """
 
 
 
+def main():
+    parser = argparse.ArgumentParser(description='This program generates random number and writes to a file.')
+    parser.add_argument('--nt', default=5, type=int,
+                        help='number of threads that you would like to run')
+    args = parser.parse_args()
+    for n in range(args.nt):
+        run_threads()
 
-
-
-# testing
-x = Generator()
-for y in range (500):
-    x.generator()
-
-print x.get_history()
-print len(x.get_history())
-
-x.cal_stat()
+main()
