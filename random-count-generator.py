@@ -158,5 +158,5 @@ def main():
     args = parser.parse_args()
     for n in range(args.nt):
         run_threads()
-
-main()
+if __name__ == "__main__":
+    main()
