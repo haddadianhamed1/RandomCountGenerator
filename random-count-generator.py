@@ -32,8 +32,6 @@ def random_number():
     rn=numpy.random.choice(numpy.arange(1, 6), p=[0.5, 0.25, 0.15, 0.05, 0.05])
     print rn
 
-# random_number()
-
 
 # abstract class for tracking
 class GetterSetter(object):
@@ -43,11 +41,6 @@ class GetterSetter(object):
         """generates random number"""
         return
 
-    @abc.abstractmethod
-    def get_history(self):
-        """list of last n random numbers"""
-
-        return
 
     @abc.abstractmethod
     def append_history(self):
@@ -68,34 +61,37 @@ class GetterSetter(object):
         return
 
 
+
 # class to generate and queue the history
 # abstract class from GetterSetter
 class Generator(GetterSetter):
     history = Queue.Queue(maxsize=100)
     event_writer = Queue.Queue()
+
+    # method to generate random number
+    # called by run_thread functio in multiple threads
     def generator(self, cond):
         with cond:
             cond.notify()
-        #print("hi")
         rn = numpy.random.choice(numpy.arange(1, 6), p=[0.5, 0.25, 0.15, 0.05, 0.05])
-        #print rn
+
+
         # after generating number calling write_Event method to time stamp and save to a file
         self.write_event(rn, datetime.utcnow())
-        #print("hi")
 
 
         # after generating number calling append_history method
         self.append_history(rn)
-        # print random number
-        #print rn
 
-    def get_history(self):
-        return list(self.history.queue)
+
+    # method to create a queue called history and keeps last 100 random number
     def append_history(self,number):
         if self.history.qsize() >= 100:
             self.history.get()
         self.history.put(number)
 
+
+    # method for calculating number of occurance and percent of occurance for the last 100 random number
     def cal_stat(self):
         random_number = defaultdict(int)
         for numbers in list(self.history.queue):
@@ -110,7 +106,6 @@ class Generator(GetterSetter):
             obj = self.event_writer.get()
             #file.write("{}\t{}\n".format(obj[0], obj[1].strftime("%m/%d/%Y %H:%M:%S")))
             file.write("{}\t{}\n".format(obj[0], obj[1]))
-            #print(obj[0], obj[1])
             # print the threads spun up
             #for thread in threading.enumerate():
             #   print(thread.name)
@@ -120,7 +115,6 @@ class Generator(GetterSetter):
 
     # write events to a file with time appeneded
     def write_event(self, number, now):
-        # print number
         # adding a new thread to call write_event
         self.event_writer.put((number, now))
         cond = threading.Condition()
@@ -130,6 +124,7 @@ class Generator(GetterSetter):
         t.join()
 
 
+# function to spin up a new thread for each time program runs
 def run_threads():
     cond = threading.Condition()
     y = Generator()
@@ -137,6 +132,8 @@ def run_threads():
     # t.daemon = True
     t.start()
     t.join()
+
+
     # testing
     """
     x = Generator()
@@ -158,5 +155,6 @@ def main():
     args = parser.parse_args()
     for n in range(args.nt):
         run_threads()
+
 if __name__ == "__main__":
     main()
